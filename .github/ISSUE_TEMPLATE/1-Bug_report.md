@@ -13,7 +13,6 @@ labels: 'bug'
 - [ ] Using npm
 - [ ] Using an up-to-date [`main` branch](https://github.com/editorinchiefoss/editor-in-chief/tree/main)
 - [ ] Using latest version of devtools. [Check the docs for how to update](https://electron-react-boilerplate.js.org/docs/dev-tools/)
-- [ ] Tried solutions mentioned in [#400](https://github.com/editorinchiefoss/editor-in-chief/issues/400)
 - [ ] For issue in production release, add devtools output of `DEBUG_PROD=true npm run build && npm start`
 
 ## Expected Behavior
