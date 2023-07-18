@@ -5,6 +5,10 @@ on:
     branches:
       - main
 
+permissions:
+  contents: write
+
+
 jobs:
   publish:
     runs-on: ${{ matrix.os }}
@@ -12,7 +16,7 @@ jobs:
     strategy:
       matrix:
         os: [macos-latest]
-
+    
     steps:
       - name: Checkout git repo
         uses: actions/checkout@v3
