@@ -8,12 +8,6 @@
 
 </div>
 
-<div align="center">
-
-[![Build Status][github-actions-status]][github-actions-url]
-
-</div>
-
 ## Starting Development
 
 Start the app in the `dev` environment:
@@ -37,5 +31,3 @@ npm run package
 ## License
 
 MIT © [Editor in Chief](https://github.com/editorinchiefoss/editor-in-chief)
-
-[github-actions-url]: https://github.com/editorinchiefoss/editor-in-chief/actions
