@@ -289,7 +289,9 @@ function App() {
                   onChange={updateModelName}
                 >
                   {Object.values(models).map((m: OpenAIModel) => (
-                    <MenuItem value={m.id}>{m.name}</MenuItem>
+                    <MenuItem value={m.id} key={m.id}>
+                      {m.name}
+                    </MenuItem>
                   ))}
                 </Select>
               </FormControl>
