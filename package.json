@@ -1,4 +1,5 @@
 {
+  "version": "0.1.0",
   "description": "An electron app to edit your writing using AI",
   "keywords": [
     "electron",
