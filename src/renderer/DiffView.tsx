@@ -1,5 +1,6 @@
-import { JSX } from 'react';
+import React, { JSX, useState } from 'react';
 import { diffWordsWithSpace, Change } from 'diff';
+import { ToggleButtonGroup, ToggleButton, Stack } from '@mui/material';
 
 interface DiffViewProps {
   src: string;
@@ -7,15 +8,17 @@ interface DiffViewProps {
 }
 
 function DiffView({ src, target }: DiffViewProps): JSX.Element {
+  const [docVersion, setDocVersion] = useState('edits');
+
   const diff = diffWordsWithSpace(src, target);
 
   const changeToJSX = (change: Change): JSX.Element => {
     if (change.removed) {
-      return change.value ? <del>{change.value}</del> : <del>&nbsp;</del>;
+      return change.value ? <del>{change.value}</del> : <span>&nbsp;</span>;
     }
 
     if (change.added) {
-      return change.value ? <mark>{change.value}</mark> : <mark>&nbsp;</mark>;
+      return change.value ? <mark>{change.value}</mark> : <span>&nbsp;</span>;
     }
 
     return change.value ? <span>{change.value}</span> : <span>&nbsp;</span>;
@@ -49,11 +52,43 @@ function DiffView({ src, target }: DiffViewProps): JSX.Element {
     }
   });
 
+  const updateDocVersion = (e: React.MouseEvent, newDocVersion: string) => {
+    e.preventDefault();
+    setDocVersion(newDocVersion);
+  };
+
   return (
     <div>
-      {paragraphs.map((curr) => (
-        <div>{curr.map((change: Change) => changeToJSX(change))}</div>
-      ))}
+      <Stack alignItems="center" style={{ marginBottom: '0.5em' }}>
+        <ToggleButtonGroup
+          value={docVersion}
+          exclusive
+          onChange={updateDocVersion}
+          aria-label="toggle to select which document version to view"
+        >
+          <ToggleButton value="original" aria-label="Original Document">
+            Original
+          </ToggleButton>
+          <ToggleButton value="edits" aria-label="Document Edits">
+            Edits
+          </ToggleButton>
+          <ToggleButton value="edited" aria-label="Edited Document">
+            Edited
+          </ToggleButton>
+        </ToggleButtonGroup>
+      </Stack>
+      {docVersion === 'original' &&
+        src
+          .split('\n')
+          .map((curr) => (curr ? <div>{curr}</div> : <div>&nbsp;</div>))}
+      {docVersion === 'edits' &&
+        paragraphs.map((curr) => (
+          <div>{curr.map((change: Change) => changeToJSX(change))}</div>
+        ))}
+      {docVersion === 'edited' &&
+        target
+          .split('\n')
+          .map((curr) => (curr ? <div>{curr}</div> : <div>&nbsp;</div>))}
     </div>
   );
 }
