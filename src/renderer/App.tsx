@@ -12,9 +12,17 @@ import {
   DialogTitle,
   IconButton,
   TextField,
+  Select,
+  MenuItem,
+  InputLabel,
+  FormControl,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
+  Slider,
 } from '@mui/material';
-import { Settings } from '@mui/icons-material';
-import { encodingForModel } from 'js-tiktoken';
+import { ExpandMore, Settings } from '@mui/icons-material';
+import { encodingForModel, TiktokenModel } from 'js-tiktoken';
 import { ChatOpenAI } from 'langchain/chat_models/openai';
 import {
   ChatPromptTemplate,
@@ -23,15 +31,30 @@ import {
 } from 'langchain/prompts';
 import { ConversationChain } from 'langchain/chains';
 
+import models, { OpenAIModel } from './models';
+import DiffView from './DiffView';
+
+const defaultPrompt =
+  "You are an expert copy editor. It is your task to take a piece of an article and proof-read it for grammar and readability. Please preserve the author's voice when editing. Return the resulting text to the human.";
+
 function App() {
   const [doc, setDoc] = useState('');
+  const [editedText, setEditedText] = useState('');
   const [paste, setPaste] = useState(false);
   const [pasteText, setPasteText] = useState('');
   const [loading, setLoading] = useState(false);
-  const [articleEdited, setArticleEdited] = useState(false);
   const [showSettingsDialog, setShowSettingsDialog] = useState(false);
   const [openAIApiKey, setOpenAIApiKey] = useState(() => {
-    return localStorage.getItem('openAIApiKey');
+    return localStorage.getItem('openAIApiKey') || '';
+  });
+  const [modelName, setModelName] = useState(() => {
+    return localStorage.getItem('openAIModel') || 'gpt-4';
+  });
+  const [systemPrompt, setSystemPrompt] = useState(() => {
+    return localStorage.getItem('systemPrompt') || defaultPrompt;
+  });
+  const [temperature, setTemperature] = useState(() => {
+    return JSON.parse(localStorage.getItem('temperature') || '0.0');
   });
 
   // Store OpenAI API Key to localStorage
@@ -39,25 +62,20 @@ function App() {
     localStorage.setItem('openAIApiKey', openAIApiKey);
   }, [openAIApiKey]);
 
+  // Store OpenAI API Key to localStorage
+  useEffect(() => {
+    localStorage.setItem('openAIModel', modelName);
+  }, [modelName]);
 
-  const modelName = 'gpt-4';
-  const enc = encodingForModel(modelName);
-  const chunkTokenSize = 1000;
+  // Store OpenAI API Key to localStorage
+  useEffect(() => {
+    localStorage.setItem('systemPrompt', systemPrompt);
+  }, [systemPrompt]);
 
-  const uploadFile = (e1: React.ChangeEvent<HTMLInputElement>) => {
-    e1.preventDefault();
-    const reader = new FileReader();
-    reader.onload = (e2) => {
-      // keep newlines in FF
-      // https://stackoverflow.com/questions/18898036/how-to-keep-newline-characters-when-i-import-a-javascript-file-with-filereader
-      const result = (e2.target?.result || '').toString();
-      setDoc(result.replace(/\r/g, '\n'));
-    };
-
-    if (e1.target.files) {
-      reader.readAsBinaryString(e1.target.files[0]);
-    }
-  };
+  // Store OpenAI API Key to localStorage
+  useEffect(() => {
+    localStorage.setItem('temperature', JSON.stringify(temperature));
+  }, [temperature]);
 
   const startPaste = (e: { preventDefault: () => void }) => {
     e.preventDefault();
@@ -81,7 +99,6 @@ function App() {
   const clearDoc = (e: { preventDefault: () => void }) => {
     e.preventDefault();
     setDoc('');
-    setArticleEdited(false);
   };
 
   const openSettingsDialog = (e: { preventDefault: () => void }) => {
@@ -103,6 +120,38 @@ function App() {
     setOpenAIApiKey(newApiKey);
   };
 
+  const updateModelName = (e: {
+    preventDefault: () => void;
+    target: { value: React.SetStateAction<string> };
+  }) => {
+    e.preventDefault();
+    setModelName(e.target.value);
+  };
+
+  const updateTemperature = (
+    e: { preventDefault: () => void },
+    value: number | Array<number>
+  ) => {
+    e.preventDefault();
+    setTemperature(
+      Array.isArray(value) ? (value[0] as number) : (value as number)
+    );
+  };
+
+  const updateSystemPrompt = (e: {
+    preventDefault: () => void;
+    target: { value: React.SetStateAction<string> };
+  }) => {
+    e.preventDefault();
+    setSystemPrompt(e.target.value);
+  };
+
+  const resetDefaults = (e: { preventDefault: () => void }) => {
+    e.preventDefault();
+    setTemperature(0);
+    setSystemPrompt(defaultPrompt);
+  };
+
   const proofRead = async (e: { preventDefault: () => void }) => {
     e.preventDefault();
     setLoading(true);
@@ -111,7 +160,7 @@ function App() {
     const llm = new ChatOpenAI({
       modelName,
       openAIApiKey,
-      temperature: 0,
+      temperature,
     });
     const promptTemplate = ChatPromptTemplate.fromPromptMessages([
       SystemMessagePromptTemplate.fromTemplate(
@@ -128,6 +177,10 @@ function App() {
     let chunks: String[] = [];
     let currChunk = '';
     let currChunkNumTokens = 0;
+
+    // model config
+    const enc = encodingForModel(modelName as TiktokenModel);
+    const chunkTokenSize = 500;
 
     // Split the document into chunks of max token length chunk_token_size
     doc.split('\n').forEach((split, idx, source) => {
@@ -154,17 +207,16 @@ function App() {
     const openAICalls = chunks.map((chunk) => chain.call({ input: chunk }));
     const proofReadChunks = await Promise.all(openAICalls).finally(() => {
       setLoading(false);
-      setArticleEdited(true);
     });
 
     const finalArticle = proofReadChunks
       .map((resp) => resp.response)
       .reduce((prev: string, curr: string) => `${prev}\n\n${curr}`);
-    setDoc(finalArticle);
+    setEditedText(finalArticle);
   };
 
   return (
-    <Container sx={{ flexGrow: 1 }}>
+    <Container sx={{ flexGrow: 1, marginTop: '1em', marginBottom: '1em' }}>
       <div style={{ float: 'right' }}>
         <IconButton onClick={openSettingsDialog}>
           <Settings />
@@ -174,38 +226,41 @@ function App() {
         <>
           {!doc && !paste && (
             <Stack spacing={2} direction="row">
-              <input
-                accept="text/markdown"
-                style={{ display: 'none' }}
-                id="raised-button-file"
-                type="file"
-                onChange={uploadFile}
-              />
-              <Button component="span">Upload</Button>
-              <Button onClick={startPaste}>Free Text</Button>
+              <Button onClick={startPaste}>Input Text</Button>
             </Stack>
           )}
           {!doc && paste && (
             <Stack spacing={2} direction="column">
+              <Button onClick={savePaste}>Submit</Button>
               <TextareaAutosize
                 onChange={updatePasteText}
                 aria-label="Free Text"
                 minRows={25}
-                style={{ minWidth: '100%' }}
+                style={{
+                  minWidth: '100%',
+                  minHeight: window.innerHeight - 80,
+                  maxHeight: window.innerHeight - 80,
+                  overflow: 'scroll',
+                }}
                 placeholder="Input your article here..."
               />
-              <Button onClick={savePaste}>Submit</Button>
             </Stack>
           )}
-          {doc && (
+          {doc && !editedText && (
             <>
-              <pre>{doc}</pre>
               <Stack direction="row">
-                {!articleEdited && (
-                  <Button onClick={proofRead}>Proof-Read</Button>
-                )}
+                <Button onClick={proofRead}>Proof-Read</Button>
                 <Button onClick={clearDoc}>Clear</Button>
               </Stack>
+              <pre>{doc}</pre>
+            </>
+          )}
+          {doc && editedText && (
+            <>
+              <Button onClick={clearDoc} style={{ float: 'left' }}>
+                Clear
+              </Button>
+              <DiffView src={doc} target={editedText} />
             </>
           )}
         </>
@@ -219,23 +274,78 @@ function App() {
       >
         <DialogTitle>Settings</DialogTitle>
         <DialogContent>
-          <DialogContentText>
-            In order to use this app, you need to set an OpenAI API Key.
-          </DialogContentText>
-          <TextField
-            autoFocus
-            onChange={updateApiKey}
-            margin="dense"
-            id="OpenAIApiKey"
-            label="OpenAI API Key"
-            type="password"
-            fullWidth
-            variant="standard"
-          />
+          <Accordion>
+            <AccordionSummary expandIcon={<ExpandMore />}>
+              General
+            </AccordionSummary>
+            <AccordionDetails>
+              <FormControl fullWidth>
+                <InputLabel id="model-select-label">OpenAI Model</InputLabel>
+                <Select
+                  labelId="model-select-label"
+                  id="model-select"
+                  value={modelName}
+                  label="OpenAI Model"
+                  onChange={updateModelName}
+                >
+                  {Object.values(models).map((m: OpenAIModel) => (
+                    <MenuItem value={m.id} key={m.id}>
+                      {m.name}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+              <DialogContentText>
+                In order to use this app, you need to set an OpenAI API Key.
+              </DialogContentText>
+              <TextField
+                autoFocus
+                onChange={updateApiKey}
+                defaultValue={openAIApiKey}
+                margin="dense"
+                id="OpenAIApiKey"
+                label="OpenAI API Key"
+                type="password"
+                fullWidth
+                variant="standard"
+              />
+            </AccordionDetails>
+          </Accordion>
+          <Accordion>
+            <AccordionSummary expandIcon={<ExpandMore />}>
+              Advanced
+            </AccordionSummary>
+            <AccordionDetails>
+              <Typography id="input-temperature">Temperature</Typography>
+              <Slider
+                value={temperature}
+                onChange={updateTemperature}
+                getAriaValueText={() => `{temperature}`}
+                min={0}
+                max={1}
+                step={0.1}
+                aria-labelledby="input-temperture"
+                valueLabelDisplay="auto"
+              />
+              <Typography id="input-system-prompt">System Prompt</Typography>
+              <TextareaAutosize
+                value={systemPrompt}
+                onChange={updateSystemPrompt}
+                aria-label="Free Text"
+                minRows={5}
+                maxRows={5}
+                style={{
+                  minWidth: '100%',
+                  overflowX: 'scroll',
+                }}
+                placeholder="System prompt here..."
+              />
+              <Button onClick={resetDefaults}>Reset Defaults</Button>
+            </AccordionDetails>
+          </Accordion>
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleSettingsClose}>Cancel</Button>
-          <Button onClick={handleSettingsClose}>Save</Button>
+          <Button onClick={handleSettingsClose}>Close</Button>
         </DialogActions>
       </Dialog>
     </Container>
