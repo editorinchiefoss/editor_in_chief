@@ -20,6 +20,8 @@ import {
   AccordionSummary,
   AccordionDetails,
   Slider,
+  Alert,
+  AlertTitle,
 } from '@mui/material';
 import { ExpandMore, Settings } from '@mui/icons-material';
 import { encodingForModel, TiktokenModel } from 'js-tiktoken';
@@ -80,10 +82,6 @@ function App() {
   const startPaste = (e: { preventDefault: () => void }) => {
     e.preventDefault();
     setPaste(true);
-  };
-
-  const savePaste = (e: { preventDefault: () => void }) => {
-    e.preventDefault();
   };
 
   const updatePasteText = (e: {
@@ -217,6 +215,13 @@ function App() {
 
   return (
     <Container sx={{ flexGrow: 1, marginTop: '1em', marginBottom: '1em' }}>
+      {!openAIApiKey && (
+        <Alert severity="warning">
+          <AlertTitle>Missing OpenAI API Key</AlertTitle>
+          You must set an OpenAI API Key before using this application. This
+          must be set in the settings menu.
+        </Alert>
+      )}
       <div style={{ float: 'right' }}>
         <IconButton onClick={openSettingsDialog}>
           <Settings />
@@ -231,15 +236,17 @@ function App() {
           )}
           {!doc && paste && (
             <Stack spacing={2} direction="column">
-              <Button onClick={proofRead}>Proof-Read</Button>
+              <Button onClick={proofRead} disabled={!openAIApiKey}>
+                Proof-Read
+              </Button>
               <TextareaAutosize
                 onChange={updatePasteText}
                 aria-label="Free Text"
                 minRows={25}
                 style={{
                   minWidth: '100%',
-                  minHeight: window.innerHeight - 80,
-                  maxHeight: window.innerHeight - 80,
+                  minHeight: window.innerHeight - 100,
+                  maxHeight: window.innerHeight - 100,
                   overflow: 'scroll',
                 }}
                 placeholder="Input your article here..."
