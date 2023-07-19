@@ -84,8 +84,6 @@ function App() {
 
   const savePaste = (e: { preventDefault: () => void }) => {
     e.preventDefault();
-    setDoc(pasteText);
-    setPaste(false);
   };
 
   const updatePasteText = (e: {
@@ -154,6 +152,7 @@ function App() {
 
   const proofRead = async (e: { preventDefault: () => void }) => {
     e.preventDefault();
+    setPaste(false);
     setLoading(true);
 
     // LangChain Setup
@@ -183,7 +182,7 @@ function App() {
     const chunkTokenSize = 500;
 
     // Split the document into chunks of max token length chunk_token_size
-    doc.split('\n').forEach((split, idx, source) => {
+    pasteText.split('\n').forEach((split, idx, source) => {
       const numNewTokens = enc.encode(split).length;
 
       // if adding the current chunk would spill over the limit,
@@ -212,6 +211,7 @@ function App() {
     const finalArticle = proofReadChunks
       .map((resp) => resp.response)
       .reduce((prev: string, curr: string) => `${prev}\n\n${curr}`);
+    setDoc(pasteText);
     setEditedText(finalArticle);
   };
 
@@ -231,7 +231,7 @@ function App() {
           )}
           {!doc && paste && (
             <Stack spacing={2} direction="column">
-              <Button onClick={savePaste}>Submit</Button>
+              <Button onClick={proofRead}>Proof-Read</Button>
               <TextareaAutosize
                 onChange={updatePasteText}
                 aria-label="Free Text"
@@ -245,15 +245,6 @@ function App() {
                 placeholder="Input your article here..."
               />
             </Stack>
-          )}
-          {doc && !editedText && (
-            <>
-              <Stack direction="row">
-                <Button onClick={proofRead}>Proof-Read</Button>
-                <Button onClick={clearDoc}>Clear</Button>
-              </Stack>
-              <pre>{doc}</pre>
-            </>
           )}
           {doc && editedText && (
             <>
