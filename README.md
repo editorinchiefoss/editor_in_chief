@@ -8,6 +8,14 @@
 
 </div>
 
+## Getting Started
+
+This app uses a "Bring Your Own API Key" approach where the user provides their own OpenAI API key in order to use the app. Philosophicaly, This approach gives the user the most control as they are only charged for what they use. Not sure how to acquire a key? Use the video below.
+
+[![Watch the video](https://img.youtube.com/vi/nafDyRsVnXU/maxresdefault.jpg)](https://youtu.be/nafDyRsVnXU)
+
+Once getting an OpenAI API key, click on the Cog icon in the top righ to open the settings dialog. Under the "General" settings, there will be a text field to enter your API key.
+
 ## Starting Development
 
 Start the app in the `dev` environment:
@@ -26,7 +34,7 @@ npm run package
 
 ## Maintainers
 
-- [Lily Hughes-](https://github.com/oaguy1)
+- [Lily Hughes-Robinson](https://github.com/oaguy1)
 
 ## License
 
