@@ -1,6 +1,6 @@
 {
   "name": "editor-in-chief",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "An electron app to edit your writing using AI",
   "license": "MIT",
   "author": {
