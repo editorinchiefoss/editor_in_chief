@@ -22,6 +22,9 @@ import {
   Slider,
   Alert,
   AlertTitle,
+  AppBar,
+  Toolbar,
+  Box,
 } from '@mui/material';
 import { ExpandMore, Settings } from '@mui/icons-material';
 import { encodingForModel, TiktokenModel } from 'js-tiktoken';
@@ -32,10 +35,7 @@ import {
   HumanMessagePromptTemplate,
 } from 'langchain/prompts';
 import { ConversationChain } from 'langchain/chains';
-import { BaseCallbackHandler, NewTokenIndices } from 'langchain/callbacks';
 
-import { Serialized } from 'langchain/dist/load/serializable';
-import { ChainValues } from 'langchain/dist/schema';
 import models, { OpenAIModel } from './models';
 import DiffView from './DiffView';
 import FirstRun from './FirstRun';
@@ -243,43 +243,48 @@ function App() {
         <FirstRun setOpenAIApiKey={setOpenAIApiKey} setFirstRun={setFirstRun} />
       )}
       {!firstRun && (
-        <div>
-          {!openAIApiKey && (
-            <Alert severity="warning">
-              <AlertTitle>Missing OpenAI API Key</AlertTitle>
-              You must set an OpenAI API Key before using this application. This
-              must be set in the settings menu.
-            </Alert>
-          )}
-          <div style={{ float: 'right' }}>
-            <IconButton onClick={openSettingsDialog}>
-              <Settings />
-            </IconButton>
-          </div>
-          {!loading && (
-            <>
-              {!editedText && (
-                <>
-                  <Stack spacing={2} direction="row">
-                    <Button onClick={proofRead}>Proof-Read</Button>
-                  </Stack>
+        <>
+          <Box sx={{ display: 'flex' }}>
+            <AppBar sx={{ justifyContent: 'space-between' }}>
+              <Toolbar>
+                <Button onClick={proofRead} disabled={!originalText || loading}>
+                  Proof-Read
+                </Button>
+                <div style={{ flexGrow: 1 }} />
+                <IconButton onClick={openSettingsDialog}>
+                  <Settings />
+                </IconButton>
+              </Toolbar>
+            </AppBar>
+          </Box>
+          <Box component="main" style={{ marginTop: '4em' }}>
+            {!openAIApiKey && (
+              <Alert severity="warning">
+                <AlertTitle>Missing OpenAI API Key</AlertTitle>
+                You must set an OpenAI API Key before using this application.
+                This must be set in the settings menu.
+              </Alert>
+            )}
+            {!loading && (
+              <>
+                {!editedText && (
                   <Stack spacing={2} direction="column">
                     <Editor setEditorContent={setOriginalText} />
                   </Stack>
-                </>
-              )}
-              {editedText && (
-                <>
-                  <Button onClick={clearDoc} style={{ float: 'left' }}>
-                    Clear
-                  </Button>
-                  <DiffView src={originalText} target={editedText} />
-                </>
-              )}
-            </>
-          )}
-          {loading && <Typography variant="h6">Loading ...</Typography>}
-        </div>
+                )}
+                {editedText && (
+                  <>
+                    <Button onClick={clearDoc} style={{ float: 'left' }}>
+                      Clear
+                    </Button>
+                    <DiffView src={originalText} target={editedText} />
+                  </>
+                )}
+              </>
+            )}
+            {loading && <Typography variant="h6">Loading ...</Typography>}
+          </Box>
+        </>
       )}
       <Dialog
         open={showSettingsDialog}
