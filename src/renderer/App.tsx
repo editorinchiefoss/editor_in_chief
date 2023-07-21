@@ -32,15 +32,19 @@ import {
   HumanMessagePromptTemplate,
 } from 'langchain/prompts';
 import { ConversationChain } from 'langchain/chains';
+import { BaseCallbackHandler, NewTokenIndices } from 'langchain/callbacks';
 
+import { Serialized } from 'langchain/dist/load/serializable';
+import { ChainValues } from 'langchain/dist/schema';
 import models, { OpenAIModel } from './models';
 import DiffView from './DiffView';
 import FirstRun from './FirstRun';
 import Editor from './Editor';
 
 const defaultPrompt =
-  "You are an expert copy editor. It is your task to take a piece of an article and proof-read it for grammar and readability. Please preserve the author's voice when editing. Return the resulting text to the human.";
+  "You are an expert copy editor. It is your task to take a piece of an article and proof-read it for grammar and reability. Preserve the author's voice and style. Return the resulting text to the human.";
 const defaultTemperature = 0.0;
+const defaultChunkTokenSize = 500;
 
 function App() {
   const [originalText, setOriginalText] = useState('');
@@ -62,6 +66,11 @@ function App() {
   const [temperature, setTemperature] = useState(() => {
     return JSON.parse(
       localStorage.getItem('temperature') || String(defaultTemperature)
+    );
+  });
+  const [chunkTokenSize, setChunkTokenSize] = useState(() => {
+    return JSON.parse(
+      localStorage.getItem('chunkTokenSize') || String(defaultChunkTokenSize)
     );
   });
 
@@ -93,6 +102,11 @@ function App() {
   useEffect(() => {
     localStorage.setItem('temperature', JSON.stringify(temperature));
   }, [temperature]);
+
+  // Store Chunk Token Size Key to localStorage
+  useEffect(() => {
+    localStorage.setItem('chunkTokenSize', JSON.stringify(chunkTokenSize));
+  }, [chunkTokenSize]);
 
   const clearDoc = (e: { preventDefault: () => void }) => {
     e.preventDefault();
@@ -137,6 +151,14 @@ function App() {
     );
   };
 
+  const updateChunkTokenSize = (e: {
+    preventDefault: () => void;
+    target: { value: React.SetStateAction<string> };
+  }) => {
+    e.preventDefault();
+    setChunkTokenSize(Number(e.target.value));
+  };
+
   const updateSystemPrompt = (e: {
     preventDefault: () => void;
     target: { value: React.SetStateAction<string> };
@@ -147,8 +169,9 @@ function App() {
 
   const resetDefaults = (e: { preventDefault: () => void }) => {
     e.preventDefault();
-    setTemperature(0);
+    setTemperature(defaultTemperature);
     setSystemPrompt(defaultPrompt);
+    setChunkTokenSize(defaultChunkTokenSize);
   };
 
   const proofRead = async (e: { preventDefault: () => void }) => {
@@ -179,7 +202,6 @@ function App() {
 
     // model config
     const enc = encodingForModel(modelName as TiktokenModel);
-    const chunkTokenSize = 500;
 
     // Split the document into chunks of max token length chunk_token_size
     originalText.split('\n').forEach((split, idx, source) => {
@@ -332,6 +354,17 @@ function App() {
                   overflowX: 'scroll',
                 }}
                 placeholder="System prompt here..."
+              />
+              <TextField
+                autoFocus
+                onChange={updateChunkTokenSize}
+                defaultValue={chunkTokenSize}
+                margin="dense"
+                id="ChunkTokenSize"
+                label="Chunk Token Size"
+                type="number"
+                fullWidth
+                variant="standard"
               />
               <Button onClick={resetDefaults}>Reset Defaults</Button>
             </AccordionDetails>
