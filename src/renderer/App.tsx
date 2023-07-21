@@ -22,6 +22,9 @@ import {
   Slider,
   Alert,
   AlertTitle,
+  AppBar,
+  Toolbar,
+  Box,
 } from '@mui/material';
 import { ExpandMore, Settings } from '@mui/icons-material';
 import { encodingForModel, TiktokenModel } from 'js-tiktoken';
@@ -36,16 +39,16 @@ import { ConversationChain } from 'langchain/chains';
 import models, { OpenAIModel } from './models';
 import DiffView from './DiffView';
 import FirstRun from './FirstRun';
+import Editor from './Editor';
 
 const defaultPrompt =
-  "You are an expert copy editor. It is your task to take a piece of an article and proof-read it for grammar and readability. Please preserve the author's voice when editing. Return the resulting text to the human.";
+  "You are an expert copy editor. It is your task to take a piece of an article and proof-read it for grammar and reability. Preserve the author's voice and style. Return the resulting text to the human.";
 const defaultTemperature = 0.0;
+const defaultChunkTokenSize = 500;
 
 function App() {
-  const [doc, setDoc] = useState('');
+  const [originalText, setOriginalText] = useState('');
   const [editedText, setEditedText] = useState('');
-  const [paste, setPaste] = useState(false);
-  const [pasteText, setPasteText] = useState('');
   const [loading, setLoading] = useState(false);
   const [showSettingsDialog, setShowSettingsDialog] = useState(false);
   const [firstRun, setFirstRun] = useState(() => {
@@ -65,6 +68,16 @@ function App() {
       localStorage.getItem('temperature') || String(defaultTemperature)
     );
   });
+  const [chunkTokenSize, setChunkTokenSize] = useState(() => {
+    return JSON.parse(
+      localStorage.getItem('chunkTokenSize') || String(defaultChunkTokenSize)
+    );
+  });
+
+  // Store First Run Key to localStorage
+  useEffect(() => {
+    localStorage.setItem('firstRun', JSON.stringify(firstRun));
+  }, [firstRun]);
 
   // Store OpenAI API Key to localStorage
   useEffect(() => {
@@ -90,22 +103,15 @@ function App() {
     localStorage.setItem('temperature', JSON.stringify(temperature));
   }, [temperature]);
 
-  const startPaste = (e: { preventDefault: () => void }) => {
-    e.preventDefault();
-    setPaste(true);
-  };
-
-  const updatePasteText = (e: {
-    preventDefault: () => void;
-    target: { value: React.SetStateAction<string> };
-  }) => {
-    e.preventDefault();
-    setPasteText(e.target.value);
-  };
+  // Store Chunk Token Size Key to localStorage
+  useEffect(() => {
+    localStorage.setItem('chunkTokenSize', JSON.stringify(chunkTokenSize));
+  }, [chunkTokenSize]);
 
   const clearDoc = (e: { preventDefault: () => void }) => {
     e.preventDefault();
-    setDoc('');
+    setOriginalText('');
+    setEditedText('');
   };
 
   const openSettingsDialog = (e: { preventDefault: () => void }) => {
@@ -145,6 +151,14 @@ function App() {
     );
   };
 
+  const updateChunkTokenSize = (e: {
+    preventDefault: () => void;
+    target: { value: React.SetStateAction<string> };
+  }) => {
+    e.preventDefault();
+    setChunkTokenSize(Number(e.target.value));
+  };
+
   const updateSystemPrompt = (e: {
     preventDefault: () => void;
     target: { value: React.SetStateAction<string> };
@@ -155,13 +169,13 @@ function App() {
 
   const resetDefaults = (e: { preventDefault: () => void }) => {
     e.preventDefault();
-    setTemperature(0);
+    setTemperature(defaultTemperature);
     setSystemPrompt(defaultPrompt);
+    setChunkTokenSize(defaultChunkTokenSize);
   };
 
   const proofRead = async (e: { preventDefault: () => void }) => {
     e.preventDefault();
-    setPaste(false);
     setLoading(true);
 
     // LangChain Setup
@@ -188,10 +202,9 @@ function App() {
 
     // model config
     const enc = encodingForModel(modelName as TiktokenModel);
-    const chunkTokenSize = 500;
 
     // Split the document into chunks of max token length chunk_token_size
-    pasteText.split('\n').forEach((split, idx, source) => {
+    originalText.split('\n').forEach((split, idx, source) => {
       const numNewTokens = enc.encode(split).length;
 
       // if adding the current chunk would spill over the limit,
@@ -220,7 +233,7 @@ function App() {
     const finalArticle = proofReadChunks
       .map((resp) => resp.response)
       .reduce((prev: string, curr: string) => `${prev}\n\n${curr}`);
-    setDoc(pasteText);
+
     setEditedText(finalArticle);
   };
 
@@ -230,57 +243,48 @@ function App() {
         <FirstRun setOpenAIApiKey={setOpenAIApiKey} setFirstRun={setFirstRun} />
       )}
       {!firstRun && (
-        <div>
-          {!openAIApiKey && (
-            <Alert severity="warning">
-              <AlertTitle>Missing OpenAI API Key</AlertTitle>
-              You must set an OpenAI API Key before using this application. This
-              must be set in the settings menu.
-            </Alert>
-          )}
-          <div style={{ float: 'right' }}>
-            <IconButton onClick={openSettingsDialog}>
-              <Settings />
-            </IconButton>
-          </div>
-          {!loading && (
-            <>
-              {!doc && !paste && (
-                <Stack spacing={2} direction="row">
-                  <Button onClick={startPaste}>Input Text</Button>
-                </Stack>
-              )}
-              {!doc && paste && (
-                <Stack spacing={2} direction="column">
-                  <Button onClick={proofRead} disabled={!openAIApiKey}>
-                    Proof-Read
-                  </Button>
-                  <TextareaAutosize
-                    onChange={updatePasteText}
-                    aria-label="Free Text"
-                    minRows={25}
-                    style={{
-                      minWidth: '100%',
-                      minHeight: window.innerHeight - 100,
-                      maxHeight: window.innerHeight - 100,
-                      overflow: 'scroll',
-                    }}
-                    placeholder="Input your article here..."
-                  />
-                </Stack>
-              )}
-              {doc && editedText && (
-                <>
-                  <Button onClick={clearDoc} style={{ float: 'left' }}>
-                    Clear
-                  </Button>
-                  <DiffView src={doc} target={editedText} />
-                </>
-              )}
-            </>
-          )}
-          {loading && <Typography variant="h6">Loading ...</Typography>}
-        </div>
+        <>
+          <Box sx={{ display: 'flex' }}>
+            <AppBar sx={{ justifyContent: 'space-between' }}>
+              <Toolbar>
+                <Button onClick={proofRead} disabled={!originalText || loading}>
+                  Proof-Read
+                </Button>
+                <div style={{ flexGrow: 1 }} />
+                <IconButton onClick={openSettingsDialog}>
+                  <Settings />
+                </IconButton>
+              </Toolbar>
+            </AppBar>
+          </Box>
+          <Box component="main" style={{ marginTop: '4em' }}>
+            {!openAIApiKey && (
+              <Alert severity="warning">
+                <AlertTitle>Missing OpenAI API Key</AlertTitle>
+                You must set an OpenAI API Key before using this application.
+                This must be set in the settings menu.
+              </Alert>
+            )}
+            {!loading && (
+              <>
+                {!editedText && (
+                  <Stack spacing={2} direction="column">
+                    <Editor setEditorContent={setOriginalText} />
+                  </Stack>
+                )}
+                {editedText && (
+                  <>
+                    <Button onClick={clearDoc} style={{ float: 'left' }}>
+                      Clear
+                    </Button>
+                    <DiffView src={originalText} target={editedText} />
+                  </>
+                )}
+              </>
+            )}
+            {loading && <Typography variant="h6">Loading ...</Typography>}
+          </Box>
+        </>
       )}
       <Dialog
         open={showSettingsDialog}
@@ -355,6 +359,17 @@ function App() {
                   overflowX: 'scroll',
                 }}
                 placeholder="System prompt here..."
+              />
+              <TextField
+                autoFocus
+                onChange={updateChunkTokenSize}
+                defaultValue={chunkTokenSize}
+                margin="dense"
+                id="ChunkTokenSize"
+                label="Chunk Token Size"
+                type="number"
+                fullWidth
+                variant="standard"
               />
               <Button onClick={resetDefaults}>Reset Defaults</Button>
             </AccordionDetails>
