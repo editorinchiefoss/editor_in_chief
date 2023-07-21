@@ -91,7 +91,6 @@
   "dependencies": {
     "@emotion/react": "^11.11.1",
     "@emotion/styled": "^11.11.0",
-    "@lexical/react": "^0.11.3",
     "@mui/icons-material": "^5.14.0",
     "@mui/material": "^5.14.0",
     "diff": "^5.1.0",
@@ -108,6 +107,7 @@
   "devDependencies": {
     "@electron/notarize": "^1.2.3",
     "@electron/rebuild": "^3.2.13",
+    "@lexical/react": "^0.11.3",
     "@pmmmwh/react-refresh-webpack-plugin": "^0.5.10",
     "@svgr/webpack": "^8.0.1",
     "@teamsupercell/typings-for-css-modules-loader": "^2.5.2",
