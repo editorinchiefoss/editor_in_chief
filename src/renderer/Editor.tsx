@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { $getRoot, $getSelection, EditorState } from 'lexical';
+import { $getRoot, EditorState } from 'lexical';
 import { LexicalComposer } from '@lexical/react/LexicalComposer';
 import { PlainTextPlugin } from '@lexical/react/LexicalPlainTextPlugin';
 import { ContentEditable } from '@lexical/react/LexicalContentEditable';
@@ -50,7 +50,7 @@ export default function Editor({ setEditorContent }: EditorProps) {
       // const selection = $getSelection();
       setEditorContent(root.getTextContent());
     });
-  }
+  };
 
   return (
     <LexicalComposer initialConfig={initialConfig}>
