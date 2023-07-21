@@ -91,6 +91,7 @@
   "dependencies": {
     "@emotion/react": "^11.11.1",
     "@emotion/styled": "^11.11.0",
+    "@lexical/react": "^0.11.3",
     "@mui/icons-material": "^5.14.0",
     "@mui/material": "^5.14.0",
     "diff": "^5.1.0",
@@ -99,6 +100,7 @@
     "electron-updater": "^5.3.0",
     "js-tiktoken": "^1.0.7",
     "langchain": "^0.0.110",
+    "lexical": "^0.11.3",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-router-dom": "^6.11.2"

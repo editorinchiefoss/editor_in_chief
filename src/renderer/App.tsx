@@ -36,16 +36,15 @@ import { ConversationChain } from 'langchain/chains';
 import models, { OpenAIModel } from './models';
 import DiffView from './DiffView';
 import FirstRun from './FirstRun';
+import Editor from './Editor';
 
 const defaultPrompt =
   "You are an expert copy editor. It is your task to take a piece of an article and proof-read it for grammar and readability. Please preserve the author's voice when editing. Return the resulting text to the human.";
 const defaultTemperature = 0.0;
 
 function App() {
-  const [doc, setDoc] = useState('');
+  const [originalText, setOriginalText] = useState('');
   const [editedText, setEditedText] = useState('');
-  const [paste, setPaste] = useState(false);
-  const [pasteText, setPasteText] = useState('');
   const [loading, setLoading] = useState(false);
   const [showSettingsDialog, setShowSettingsDialog] = useState(false);
   const [firstRun, setFirstRun] = useState(() => {
@@ -65,6 +64,11 @@ function App() {
       localStorage.getItem('temperature') || String(defaultTemperature)
     );
   });
+
+  // Store First Run Key to localStorage
+  useEffect(() => {
+    localStorage.setItem('firstRun', JSON.stringify(firstRun));
+  }, [firstRun]);
 
   // Store OpenAI API Key to localStorage
   useEffect(() => {
@@ -90,22 +94,10 @@ function App() {
     localStorage.setItem('temperature', JSON.stringify(temperature));
   }, [temperature]);
 
-  const startPaste = (e: { preventDefault: () => void }) => {
-    e.preventDefault();
-    setPaste(true);
-  };
-
-  const updatePasteText = (e: {
-    preventDefault: () => void;
-    target: { value: React.SetStateAction<string> };
-  }) => {
-    e.preventDefault();
-    setPasteText(e.target.value);
-  };
-
   const clearDoc = (e: { preventDefault: () => void }) => {
     e.preventDefault();
-    setDoc('');
+    setOriginalText('');
+    setEditedText('');
   };
 
   const openSettingsDialog = (e: { preventDefault: () => void }) => {
@@ -161,7 +153,6 @@ function App() {
 
   const proofRead = async (e: { preventDefault: () => void }) => {
     e.preventDefault();
-    setPaste(false);
     setLoading(true);
 
     // LangChain Setup
@@ -191,7 +182,7 @@ function App() {
     const chunkTokenSize = 500;
 
     // Split the document into chunks of max token length chunk_token_size
-    pasteText.split('\n').forEach((split, idx, source) => {
+    originalText.split('\n').forEach((split, idx, source) => {
       const numNewTokens = enc.encode(split).length;
 
       // if adding the current chunk would spill over the limit,
@@ -220,7 +211,7 @@ function App() {
     const finalArticle = proofReadChunks
       .map((resp) => resp.response)
       .reduce((prev: string, curr: string) => `${prev}\n\n${curr}`);
-    setDoc(pasteText);
+
     setEditedText(finalArticle);
   };
 
@@ -245,36 +236,22 @@ function App() {
           </div>
           {!loading && (
             <>
-              {!doc && !paste && (
-                <Stack spacing={2} direction="row">
-                  <Button onClick={startPaste}>Input Text</Button>
-                </Stack>
+              {!editedText && (
+                <>
+                  <Stack spacing={2} direction="row">
+                    <Button onClick={proofRead}>Proof-Read</Button>
+                  </Stack>
+                  <Stack spacing={2} direction="column">
+                    <Editor setEditorContent={setOriginalText} />
+                  </Stack>
+                </>
               )}
-              {!doc && paste && (
-                <Stack spacing={2} direction="column">
-                  <Button onClick={proofRead} disabled={!openAIApiKey}>
-                    Proof-Read
-                  </Button>
-                  <TextareaAutosize
-                    onChange={updatePasteText}
-                    aria-label="Free Text"
-                    minRows={25}
-                    style={{
-                      minWidth: '100%',
-                      minHeight: window.innerHeight - 100,
-                      maxHeight: window.innerHeight - 100,
-                      overflow: 'scroll',
-                    }}
-                    placeholder="Input your article here..."
-                  />
-                </Stack>
-              )}
-              {doc && editedText && (
+              {editedText && (
                 <>
                   <Button onClick={clearDoc} style={{ float: 'left' }}>
                     Clear
                   </Button>
-                  <DiffView src={doc} target={editedText} />
+                  <DiffView src={originalText} target={editedText} />
                 </>
               )}
             </>
