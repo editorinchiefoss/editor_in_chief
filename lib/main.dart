@@ -22,8 +22,7 @@ class MyApp extends StatelessWidget {
         useMaterial3: true,
       ),
       themeMode: ThemeMode.system,
-      home:
-          const EditorPage(key: Key('damn, a test'), title: 'Editor in Chief'),
+      home: EditorPage(key: UniqueKey(), title: 'Editor in Chief'),
     );
   }
 }
@@ -44,8 +43,11 @@ class _EditorPageState extends State<EditorPage> {
       appBar: AppBar(
         title: Text(widget.title),
       ),
-      body:
-          const Center(child: MarkdownEditor(key: Key('main_screen_preview'))),
+      body: Center(
+          child: Padding(
+        padding: const EdgeInsets.only(top: 8.0),
+        child: MarkdownEditor(key: UniqueKey()),
+      )),
     );
   }
 }

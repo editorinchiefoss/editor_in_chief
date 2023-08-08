@@ -42,6 +42,9 @@ for the formatted Markdown view in the demo.
 
 enum TextEditMode { edit, preview }
 
+final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+TextEditingController textController = TextEditingController();
+
 // TODO(goderbauer): Restructure the examples to avoid this ignore, https://github.com/flutter/flutter/issues/110208.
 // ignore: avoid_implementing_value_types
 class MarkdownEditor extends StatefulWidget {
@@ -68,6 +71,7 @@ class _MarkdownEditorState extends State<MarkdownEditor> {
 
   void setTextEditMode(TextEditMode newMode) {
     setState(() {
+      editorText = textController.value.text;
       currMode = newMode;
     });
   }
@@ -89,7 +93,7 @@ class _MarkdownEditorState extends State<MarkdownEditor> {
       );
     } else {
       pane = Markdown(
-        key: const Key('editor'),
+        key: UniqueKey(),
         data: editorText,
         onTapLink: (String text, String? href, String title) =>
             linkOnTapHandler(context, text, href, title),
@@ -180,36 +184,20 @@ class TextEditor extends StatefulWidget {
 }
 
 class _TextEditorState extends State<TextEditor> {
-  late TextEditingController _controller;
-  late FocusNode myFocusNode;
-
   @override
   void initState() {
     super.initState();
-    _controller = TextEditingController(text: widget.text);
-    myFocusNode = FocusNode();
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    myFocusNode.dispose();
-    super.dispose();
-  }
-
-  void setText(String value) {
-    widget.onChange(value);
-    myFocusNode.requestFocus();
+    textController = TextEditingController(text: widget.text);
   }
 
   @override
   Widget build(BuildContext context) {
     return TextField(
-      controller: _controller,
-      focusNode: myFocusNode,
+      key: _formKey,
+      controller: textController,
       maxLines: null,
       keyboardType: TextInputType.multiline,
-      onChanged: setText,
+      autocorrect: true,
     );
   }
 }
