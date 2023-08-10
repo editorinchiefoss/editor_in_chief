@@ -37,6 +37,8 @@ dependencies:
   cupertino_icons: ^1.0.2
   file_picker: ^5.3.3
   flutter_markdown: ^0.6.17
+  share_plus: ^4.1.0
+  shared_preferences: ^2.2.0
 
 dev_dependencies:
   flutter_test:
@@ -92,7 +94,5 @@ flutter:
   # see https://flutter.dev/custom-fonts/#from-packages
 
 flutter_icons:
-  linux: true
-  macos: true
-  windows: true
+  android: true
   image_path: "assets/icons/512x512.png"
