@@ -1,16 +1,41 @@
-# editor_in_chief
+# Editor in Chief
 
-A new Flutter project.
+*Your personal copy editor*
+
+<div align="center">
+
+![Editor in Chief Logo](./assets/icon.png)
+
+</div>
 
 ## Getting Started
 
-This project is a starting point for a Flutter application.
+This app uses a "Bring Your Own API Key" approach where the user provides their own OpenAI API key in order to use the app. Philosophicaly, This approach gives the user the most control as they are only charged for what they use. Not sure how to acquire a key? Use the video below.
 
-A few resources to get you started if this is your first Flutter project:
+[![Watch the video](https://img.youtube.com/vi/nafDyRsVnXU/maxresdefault.jpg)](https://youtu.be/nafDyRsVnXU)
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+Once getting an OpenAI API key, click on the Cog icon in the top righ to open the settings dialog. Under the "General" settings, there will be a text field to enter your API key.
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+## Starting Development
+
+Start the app in the `dev` environment:
+
+```bash
+npm start
+```
+
+## Packaging for Production
+
+To package apps for the local platform:
+
+```bash
+npm run package
+```
+
+## Maintainers
+
+- [Lily Hughes-Robinson](https://github.com/oaguy1)
+
+## License
+
+MIT © [Editor in Chief](https://github.com/editorinchiefoss/editor-in-chief)
