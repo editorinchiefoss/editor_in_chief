@@ -56,6 +56,8 @@ class _MarkdownEditorState extends State<MarkdownEditor> {
       pane = Markdown(
         key: UniqueKey(),
         data: editorText,
+        styleSheet:
+            MarkdownStyleSheet(p: Theme.of(context).textTheme.bodyLarge),
         onTapLink: (String text, String? href, String title) =>
             linkOnTapHandler(context, text, href, title),
       );

@@ -1,8 +1,13 @@
 import 'dart:io';
 import 'package:editor_in_chief/markdown_widget.dart';
+import 'package:editor_in_chief/diff_widget.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:langchain/langchain.dart';
+import 'package:langchain_openai/langchain_openai.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:tiktoken/tiktoken.dart' as tiktoken;
 
 void main() {
   runApp(const MyApp());
@@ -31,8 +36,20 @@ class MyApp extends StatelessWidget {
 }
 
 TextEditingController textController = TextEditingController();
+TextEditingController apiKeyController = TextEditingController();
+
+const String defaultSystemPrompt =
+    "You are an expert copy editor. It is your task to take a piece of an article and proof-read it for grammar and readability. Preserve the author's voice and style. Return the resulting text to the human.";
 
 enum ModelName { gpt4, gpt35turbo, gpt35turbo16k }
+
+Map<ModelName, String> modelMap = {
+  ModelName.gpt4: 'gpt-4',
+  ModelName.gpt35turbo: 'gpt-3.5-turbo',
+  ModelName.gpt35turbo16k: 'gpt-3.5-turbo-16k'
+};
+
+enum PrefKeys { firstRun, apiKey, temperture, contextLength, modelName }
 
 class EditorPage extends StatefulWidget {
   final String title;
@@ -44,9 +61,38 @@ class EditorPage extends StatefulWidget {
 }
 
 class _EditorPageState extends State<EditorPage> {
+  bool _firstRun = true;
+  String _apiKey = '';
+  int _contextLength = 7000;
   ModelName? _modelName = ModelName.gpt35turbo16k;
-  double temperature = 0.1;
-  int contextLength = 7000;
+  double _temperature = 0.1;
+  String _editedText = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPrefs();
+  }
+
+  Future<void> _loadPrefs() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _firstRun = prefs.getBool(PrefKeys.firstRun.name) ?? true;
+      _apiKey = prefs.getString(PrefKeys.apiKey.name) ?? '';
+      _contextLength = prefs.getInt(PrefKeys.contextLength.name) ?? 7000;
+      _temperature = prefs.getDouble(PrefKeys.temperture.name) ?? 0.1;
+
+      String storedModelName = prefs.getString(PrefKeys.modelName.name) ?? '';
+      if (ModelName.values.map((e) => e.name).contains(storedModelName)) {
+        _modelName =
+            ModelName.values.firstWhere((e) => e.name == storedModelName);
+      } else {
+        _modelName = ModelName.gpt35turbo16k;
+      }
+
+      apiKeyController.text = _apiKey;
+    });
+  }
 
   Future<void> openFile() async {
     FilePickerResult? result = await FilePicker.platform
@@ -85,9 +131,170 @@ class _EditorPageState extends State<EditorPage> {
     }
   }
 
+  void showSettings(BuildContext context) async {
+    showDialog<String>(
+        barrierDismissible: false,
+        context: context,
+        builder: (BuildContext context) => AlertDialog(
+              title: const Text("Settings"),
+              content: StatefulBuilder(
+                  builder: (BuildContext context, StateSetter setState) {
+                return SingleChildScrollView(
+                  child: ListBody(
+                    children: <Widget>[
+                      SizedBox(
+                        width: 350,
+                        child: TextField(
+                          controller: apiKeyController,
+                          obscureText: true,
+                          decoration: const InputDecoration(
+                              label: Text("OpenAI API Key")),
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      const Text('Model select'),
+                      ListTile(
+                        title: const Text('ChatGPT'),
+                        leading: Radio<ModelName>(
+                            value: ModelName.gpt35turbo16k,
+                            groupValue: _modelName,
+                            onChanged: (ModelName? value) {
+                              setState(() {
+                                _modelName = value;
+                                if (_modelName == ModelName.gpt35turbo16k) {
+                                  _contextLength = 7000;
+                                } else {
+                                  _contextLength = 3500;
+                                }
+                              });
+                            }),
+                      ),
+                      ListTile(
+                        title: const Text('GPT-4'),
+                        leading: Radio<ModelName>(
+                            value: ModelName.gpt4,
+                            groupValue: _modelName,
+                            onChanged: (ModelName? value) {
+                              setState(() {
+                                _modelName = value;
+                                if (_modelName == ModelName.gpt35turbo16k) {
+                                  _contextLength = 7000;
+                                } else {
+                                  _contextLength = 3500;
+                                }
+                              });
+                            }),
+                      )
+                    ],
+                  ),
+                );
+              }),
+              actions: [
+                TextButton(
+                    onPressed: () async {
+                      final prefs = await SharedPreferences.getInstance();
+                      setState(() {
+                        _apiKey = apiKeyController.text;
+                        prefs.setString(PrefKeys.apiKey.name, _apiKey);
+                        prefs.setInt(
+                            PrefKeys.contextLength.name, _contextLength);
+                        prefs.setString(
+                            PrefKeys.modelName.name, _modelName!.name);
+                        prefs.setDouble(PrefKeys.temperture.name, _temperature);
+                      });
+                      Navigator.pop(context);
+                    },
+                    child: const Text("Close"))
+              ],
+            ));
+  }
+
+  void copyEdit(BuildContext context) async {
+    showDialog(
+        barrierDismissible: false,
+        context: context,
+        builder: (BuildContext context) {
+          return const AlertDialog(
+            title: Text("Loading"),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SizedBox(
+                    height: 150,
+                    width: 150,
+                    child: CircularProgressIndicator()),
+              ],
+            ),
+          );
+        });
+
+    Map<ModelName, String> modelMap = {
+      ModelName.gpt4: 'gpt-4',
+      ModelName.gpt35turbo: 'gpt-3.5-turbo',
+      ModelName.gpt35turbo16k: 'gpt-3.5-turbo-16k'
+    };
+
+    ChatOpenAI llm = ChatOpenAI(apiKey: _apiKey);
+    ChatPromptTemplate prompt = ChatPromptTemplate.fromPromptMessages([
+      SystemChatMessagePromptTemplate.fromTemplate(defaultSystemPrompt),
+      HumanChatMessagePromptTemplate.fromTemplate('{input}')
+    ]);
+    LLMChain llmChain = LLMChain(llm: llm, prompt: prompt);
+
+    List<String> chunks = [];
+    String currChunk = '';
+    int currChunkNumTokens = 0;
+
+    final tiktoken.Tiktoken encoding =
+        tiktoken.encodingForModel(modelMap[_modelName!]!);
+
+    Map<int, String> splits = textController.text.split('\n').asMap();
+    int totalSplits = splits.length;
+    splits.forEach((idx, split) {
+      int newNumTokens = encoding.encode(split).length;
+
+      if (newNumTokens + currChunkNumTokens > _contextLength) {
+        chunks.add(currChunk);
+        currChunk = split;
+        currChunkNumTokens = newNumTokens;
+      } else {
+        currChunk += "$split\n";
+        currChunkNumTokens += newNumTokens + 1;
+      }
+
+      if (idx == totalSplits - 1) {
+        chunks.add(currChunk);
+      }
+    });
+
+    List<Future<Map<String, dynamic>>> openAICalls =
+        chunks.map((chunk) => llmChain.call(chunk)).toList();
+
+    List<Map<String, dynamic>> responses = await Future.wait(openAICalls);
+
+    List<AIChatMessage> messages =
+        responses.map((dynamic e) => e['output'] as AIChatMessage).toList();
+
+    setState(() {
+      _editedText = messages
+          .map((AIChatMessage message) => message.content)
+          .reduce((value, element) => value + element);
+    });
+
+    Navigator.pop(context);
+  }
+
+  void clearEdits() {
+    setState(() {
+      _editedText = '';
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     Icon shareIcon;
+    Widget pane;
+    Widget fab;
 
     if (Platform.isAndroid || Platform.isIOS) {
       shareIcon = const Icon(Icons.share);
@@ -95,80 +302,108 @@ class _EditorPageState extends State<EditorPage> {
       shareIcon = const Icon(Icons.save);
     }
 
+    if (_editedText.isNotEmpty) {
+      pane =
+          DiffView(originalText: textController.text, editedText: _editedText);
+      fab = FloatingActionButton(
+          onPressed: clearEdits, child: const Icon(Icons.clear));
+    } else {
+      pane = MarkdownEditor(key: UniqueKey(), controller: textController);
+      fab = FloatingActionButton(
+        onPressed: () => copyEdit(context),
+        child: const Icon(Icons.auto_awesome),
+      );
+    }
+
+    afterBuildActions(context);
+
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.title),
         actions: <Widget>[
           IconButton(onPressed: openFile, icon: const Icon(Icons.file_open)),
-          IconButton(onPressed: saveOrShareFile, icon: shareIcon),
           IconButton(
-              onPressed: () => showDialog<String>(
-                  context: context,
-                  builder: (BuildContext context) => AlertDialog(
-                        title: const Text("Model Select"),
-                        content: StatefulBuilder(builder:
-                            (BuildContext context, StateSetter setState) {
-                          return SingleChildScrollView(
-                            child: ListBody(
-                              children: <Widget>[
-                                const Text('Model select'),
-                                ListTile(
-                                  title: const Text('ChatGPT'),
-                                  leading: Radio<ModelName>(
-                                      value: ModelName.gpt35turbo16k,
-                                      groupValue: _modelName,
-                                      onChanged: (ModelName? value) {
-                                        setState(() {
-                                          _modelName = value;
-                                          if (_modelName ==
-                                              ModelName.gpt35turbo16k) {
-                                            contextLength = 7000;
-                                          } else {
-                                            contextLength = 3500;
-                                          }
-                                        });
-                                      }),
-                                ),
-                                ListTile(
-                                  title: const Text('GPT-4'),
-                                  leading: Radio<ModelName>(
-                                      value: ModelName.gpt4,
-                                      groupValue: _modelName,
-                                      onChanged: (ModelName? value) {
-                                        setState(() {
-                                          _modelName = value;
-                                          if (_modelName ==
-                                              ModelName.gpt35turbo16k) {
-                                            contextLength = 7000;
-                                          } else {
-                                            contextLength = 3500;
-                                          }
-                                        });
-                                      }),
-                                )
-                              ],
-                            ),
-                          );
-                        }),
-                        actions: [
-                          TextButton(
-                              onPressed: () {
-                                Navigator.pop(context);
-                              },
-                              child: const Text("Close"))
-                        ],
-                      )),
+            onPressed: saveOrShareFile,
+            icon: shareIcon,
+            disabledColor: Colors.grey,
+          ),
+          IconButton(
+              onPressed: () => showSettings(context),
               icon: const Icon(Icons.settings))
         ],
       ),
       body: Center(
-          child: Padding(
-        padding: const EdgeInsets.only(top: 8.0),
-        child: MarkdownEditor(
-          key: UniqueKey(),
-          controller: textController,
-        ),
-      )),
+          child:
+              Padding(padding: const EdgeInsets.only(top: 8.0), child: pane)),
+      floatingActionButton: Visibility(visible: _apiKey.isNotEmpty, child: fab),
     );
+  }
+
+  Future<void> afterBuildActions(context) async {
+    await Future.delayed(Duration.zero);
+
+    if (_firstRun) {
+      showDialog(
+          context: context,
+          builder: (BuildContext context) {
+            return Dialog.fullscreen(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: <Widget>[
+                  Text(
+                    "Welcome to Editor in Chief!",
+                    style: Theme.of(context).textTheme.headlineLarge,
+                  ),
+                  const SizedBox(height: 10),
+                  const Image(image: AssetImage('assets/icon.png')),
+                  const SizedBox(height: 10),
+                  Text(
+                    """Editor in Chief is your personal copy-editor. Bring your original writing and get instant feedback.
+
+In order to use this app, you will need to provide your own OpenAI API key.""",
+                    style: Theme.of(context).textTheme.bodyLarge,
+                  ),
+                  SizedBox(
+                      width: 350,
+                      child: TextField(
+                        controller: apiKeyController,
+                        obscureText: true,
+                        decoration: const InputDecoration(
+                            label: Text("OpenAI API Key")),
+                      )),
+                  const SizedBox(height: 10),
+                  TextButton(
+                      onPressed: () {
+                        setState(() {
+                          _apiKey = apiKeyController.text;
+                        });
+                        Navigator.pop(context);
+                      },
+                      child: const Text("Continue"))
+                ],
+              ),
+            );
+          });
+    }
+
+    if (_apiKey.isEmpty) {
+      ScaffoldMessenger.of(context).showMaterialBanner(MaterialBanner(
+          padding: EdgeInsets.all(5),
+          leading: const Icon(Icons.warning),
+          content: const Text(
+              'You will not be able to take full advantage of the app until you input an OpenAI API Key'),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => showSettings(context),
+              child: const Text('Open Settings'),
+            ),
+            TextButton(
+              onPressed: () =>
+                  ScaffoldMessenger.of(context).hideCurrentMaterialBanner(),
+              child: const Text('Dismiss'),
+            )
+          ]));
+    }
   }
 }

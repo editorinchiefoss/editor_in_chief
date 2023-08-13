@@ -39,6 +39,10 @@ dependencies:
   flutter_markdown: ^0.6.17
   share_plus: ^4.1.0
   shared_preferences: ^2.2.0
+  langchain: ^0.0.5+1
+  langchain_openai: ^0.0.5+1
+  tiktoken: ^1.0.3
+  pretty_diff_text: ^1.0.0
 
 dev_dependencies:
   flutter_test:
