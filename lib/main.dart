@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:editor_in_chief/markdown_widget.dart';
 import 'package:editor_in_chief/diff_widget.dart';
@@ -21,6 +22,12 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Flutter Demo',
+      routes: {
+        '/': (context) =>
+            EditorPage(key: UniqueKey(), title: 'Editor in Chief'),
+        '/first-run': (context) =>
+            FirstRun(key: UniqueKey(), title: 'First Run')
+      },
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.lightBlue),
         useMaterial3: true,
@@ -30,7 +37,6 @@ class MyApp extends StatelessWidget {
         useMaterial3: true,
       ),
       themeMode: ThemeMode.system,
-      home: EditorPage(key: UniqueKey(), title: 'Editor in Chief'),
     );
   }
 }
@@ -209,25 +215,7 @@ class _EditorPageState extends State<EditorPage> {
             ));
   }
 
-  void copyEdit(BuildContext context) async {
-    showDialog(
-        barrierDismissible: false,
-        context: context,
-        builder: (BuildContext context) {
-          return const AlertDialog(
-            title: Text("Loading"),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                SizedBox(
-                    height: 150,
-                    width: 150,
-                    child: CircularProgressIndicator()),
-              ],
-            ),
-          );
-        });
-
+  Future<void> callLLM() async {
     Map<ModelName, String> modelMap = {
       ModelName.gpt4: 'gpt-4',
       ModelName.gpt35turbo: 'gpt-3.5-turbo',
@@ -280,8 +268,44 @@ class _EditorPageState extends State<EditorPage> {
           .map((AIChatMessage message) => message.content)
           .reduce((value, element) => value + element);
     });
+  }
 
-    Navigator.pop(context);
+  void copyEdit(BuildContext context) {
+    showDialog(
+        barrierDismissible: false,
+        context: context,
+        builder: (BuildContext context) {
+          return const AlertDialog(
+            title: Text("Loading"),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SizedBox(
+                    height: 150,
+                    width: 150,
+                    child: CircularProgressIndicator()),
+              ],
+            ),
+          );
+        });
+
+    callLLM().then((_) => Navigator.of(context).pop(), onError: ((e, s) {
+      Navigator.of(context).pop();
+      showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (BuildContext context) {
+            return AlertDialog(
+              title: const Text("Error!"),
+              content: const Text('There was an error reaching OpenAI.'),
+              actions: <Widget>[
+                TextButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: const Text('Dismiss'))
+              ],
+            );
+          });
+    }));
   }
 
   void clearEdits() {
@@ -343,53 +367,12 @@ class _EditorPageState extends State<EditorPage> {
     await Future.delayed(Duration.zero);
 
     if (_firstRun) {
-      showDialog(
-          context: context,
-          builder: (BuildContext context) {
-            return Dialog.fullscreen(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: <Widget>[
-                  Text(
-                    "Welcome to Editor in Chief!",
-                    style: Theme.of(context).textTheme.headlineLarge,
-                  ),
-                  const SizedBox(height: 10),
-                  const Image(image: AssetImage('assets/icon.png')),
-                  const SizedBox(height: 10),
-                  Text(
-                    """Editor in Chief is your personal copy-editor. Bring your original writing and get instant feedback.
-
-In order to use this app, you will need to provide your own OpenAI API key.""",
-                    style: Theme.of(context).textTheme.bodyLarge,
-                  ),
-                  SizedBox(
-                      width: 350,
-                      child: TextField(
-                        controller: apiKeyController,
-                        obscureText: true,
-                        decoration: const InputDecoration(
-                            label: Text("OpenAI API Key")),
-                      )),
-                  const SizedBox(height: 10),
-                  TextButton(
-                      onPressed: () {
-                        setState(() {
-                          _apiKey = apiKeyController.text;
-                        });
-                        Navigator.pop(context);
-                      },
-                      child: const Text("Continue"))
-                ],
-              ),
-            );
-          });
+      Navigator.pushNamed(context, '/first-run');
     }
 
-    if (_apiKey.isEmpty) {
+    if (!_firstRun && _apiKey.isEmpty) {
       ScaffoldMessenger.of(context).showMaterialBanner(MaterialBanner(
-          padding: EdgeInsets.all(5),
+          padding: const EdgeInsets.all(5),
           leading: const Icon(Icons.warning),
           content: const Text(
               'You will not be able to take full advantage of the app until you input an OpenAI API Key'),
@@ -405,5 +388,62 @@ In order to use this app, you will need to provide your own OpenAI API key.""",
             )
           ]));
     }
+  }
+}
+
+class FirstRun extends StatefulWidget {
+  final String title;
+
+  const FirstRun({required Key key, required this.title}) : super(key: key);
+
+  @override
+  State<FirstRun> createState() => _FirstRunState();
+}
+
+class _FirstRunState extends State<FirstRun> {
+  Future<void> saveApiKey(String apiKey) async {
+    final prefs = await SharedPreferences.getInstance();
+    prefs.setString(PrefKeys.apiKey.name, apiKey);
+    prefs.setBool(PrefKeys.firstRun.name, false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: <Widget>[
+          Text(
+            "Welcome to Editor in Chief!",
+            style: Theme.of(context).textTheme.headlineLarge,
+          ),
+          const SizedBox(height: 10),
+          const Image(image: AssetImage('assets/icon.png')),
+          const SizedBox(height: 10),
+          Text(
+            """Editor in Chief is your personal copy-editor. Bring your original writing and get instant feedback.
+      
+      In order to use this app, you will need to provide your own OpenAI API key.""",
+            style: Theme.of(context).textTheme.bodyLarge,
+          ),
+          SizedBox(
+              width: 350,
+              child: TextField(
+                controller: apiKeyController,
+                obscureText: true,
+                decoration:
+                    const InputDecoration(label: Text("OpenAI API Key")),
+              )),
+          const SizedBox(height: 10),
+          TextButton(
+              onPressed: () {
+                saveApiKey(apiKeyController.text);
+                Navigator.pop(context);
+              },
+              child: const Text("Continue"))
+        ],
+      ),
+    );
   }
 }

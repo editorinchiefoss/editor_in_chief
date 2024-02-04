@@ -42,9 +42,9 @@ class _DiffViewState extends State<DiffView> {
           newText: widget.editedText,
           defaultTextStyle: Theme.of(context).textTheme.bodyLarge!,
           addedTextStyle:
-              TextStyle(color: Colors.black, backgroundColor: Colors.green),
+              const TextStyle(color: Colors.black, backgroundColor: Colors.green),
           deletedTextStyle:
-              TextStyle(color: Colors.black, backgroundColor: Colors.redAccent),
+              const TextStyle(color: Colors.black, backgroundColor: Colors.redAccent),
         );
         break;
       default:
