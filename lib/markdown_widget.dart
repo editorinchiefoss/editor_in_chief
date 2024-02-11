@@ -5,7 +5,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_markdown/flutter_markdown.dart';
+import 'package:flutter_markdown/flutter_markdown.dart' as md;
 
 enum TextEditMode { edit, preview }
 
@@ -53,11 +53,11 @@ class _MarkdownEditorState extends State<MarkdownEditor> {
         onChange: setText,
       );
     } else {
-      pane = Markdown(
+      pane = md.Markdown(
         key: UniqueKey(),
         data: editorText,
         styleSheet:
-            MarkdownStyleSheet(p: Theme.of(context).textTheme.bodyLarge),
+            md.MarkdownStyleSheet(p: Theme.of(context).textTheme.bodyLarge),
         onTapLink: (String text, String? href, String title) =>
             linkOnTapHandler(context, text, href, title),
       );

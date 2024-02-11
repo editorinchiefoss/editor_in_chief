@@ -1,7 +1,10 @@
 import 'dart:async';
 import 'dart:io';
+import 'package:editor_in_chief/loading_screen.dart';
 import 'package:editor_in_chief/markdown_widget.dart';
 import 'package:editor_in_chief/diff_widget.dart';
+import 'package:editor_in_chief/utils.dart';
+import 'package:editor_in_chief/first_run.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:langchain/langchain.dart';
@@ -21,9 +24,10 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Demo',
+      title: 'Editor in Chief',
       routes: {
-        '/': (context) =>
+        '/': (context) => LoadingScreen(key: UniqueKey(), title: 'Loading'),
+        '/editor': (context) =>
             EditorPage(key: UniqueKey(), title: 'Editor in Chief'),
         '/first-run': (context) =>
             FirstRun(key: UniqueKey(), title: 'First Run')
@@ -54,8 +58,6 @@ Map<ModelName, String> modelMap = {
   ModelName.gpt35turbo: 'gpt-3.5-turbo',
   ModelName.gpt35turbo16k: 'gpt-3.5-turbo-16k'
 };
-
-enum PrefKeys { firstRun, apiKey, temperture, contextLength, modelName }
 
 class EditorPage extends StatefulWidget {
   final String title;
@@ -366,10 +368,6 @@ class _EditorPageState extends State<EditorPage> {
   Future<void> afterBuildActions(context) async {
     await Future.delayed(Duration.zero);
 
-    if (_firstRun) {
-      Navigator.pushNamed(context, '/first-run');
-    }
-
     if (!_firstRun && _apiKey.isEmpty) {
       ScaffoldMessenger.of(context).showMaterialBanner(MaterialBanner(
           padding: const EdgeInsets.all(5),
@@ -388,62 +386,5 @@ class _EditorPageState extends State<EditorPage> {
             )
           ]));
     }
-  }
-}
-
-class FirstRun extends StatefulWidget {
-  final String title;
-
-  const FirstRun({required Key key, required this.title}) : super(key: key);
-
-  @override
-  State<FirstRun> createState() => _FirstRunState();
-}
-
-class _FirstRunState extends State<FirstRun> {
-  Future<void> saveApiKey(String apiKey) async {
-    final prefs = await SharedPreferences.getInstance();
-    prefs.setString(PrefKeys.apiKey.name, apiKey);
-    prefs.setBool(PrefKeys.firstRun.name, false);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: <Widget>[
-          Text(
-            "Welcome to Editor in Chief!",
-            style: Theme.of(context).textTheme.headlineLarge,
-          ),
-          const SizedBox(height: 10),
-          const Image(image: AssetImage('assets/icon.png')),
-          const SizedBox(height: 10),
-          Text(
-            """Editor in Chief is your personal copy-editor. Bring your original writing and get instant feedback.
-      
-      In order to use this app, you will need to provide your own OpenAI API key.""",
-            style: Theme.of(context).textTheme.bodyLarge,
-          ),
-          SizedBox(
-              width: 350,
-              child: TextField(
-                controller: apiKeyController,
-                obscureText: true,
-                decoration:
-                    const InputDecoration(label: Text("OpenAI API Key")),
-              )),
-          const SizedBox(height: 10),
-          TextButton(
-              onPressed: () {
-                saveApiKey(apiKeyController.text);
-                Navigator.pop(context);
-              },
-              child: const Text("Continue"))
-        ],
-      ),
-    );
   }
 }
