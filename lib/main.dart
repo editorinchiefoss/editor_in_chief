@@ -1,4 +1,4 @@
-import 'dart:async';
+import 'dart:core';
 import 'dart:io';
 import 'package:editor_in_chief/loading_screen.dart';
 import 'package:editor_in_chief/markdown_widget.dart';
@@ -47,16 +47,41 @@ class MyApp extends StatelessWidget {
 
 TextEditingController textController = TextEditingController();
 TextEditingController apiKeyController = TextEditingController();
+TextEditingController promptController = TextEditingController();
 
-const String defaultSystemPrompt =
-    "You are an expert copy editor. It is your task to take a piece of an article and proof-read it for grammar and readability. Preserve the author's voice and style. Return the resulting text to the human.";
+const String defaultSystemPrompt = """
+You are a meticulous copy editor with a keen eye for detail and a deep understanding of language. Your mission is to polish a section of an article, ensuring it gleams with clarity, conciseness, and accuracy.
 
-enum ModelName { gpt4, gpt35turbo, gpt35turbo16k }
+Approach the text with respect for the author's voice and style. While ensuring impeccable grammar and readability, preserve the unique essence of their writing.
 
-Map<ModelName, String> modelMap = {
+Focus on:
+
+* Grammar and mechanics: Eliminate errors in punctuation, spelling, subject-verb agreement, and sentence structure.
+* Readability: Improve clarity by restructuring sentences, eliminating ambiguity, and simplifying complex language.
+* Flow and coherence: Ensure smooth transitions between sentences and paragraphs.
+* Word choice: Suggest stronger verbs, more precise nouns, and eliminate unnecessary words and repetition.
+* Ultimately, return a polished manuscript that retains the author's voice and effectively communicates the intended message.
+
+Additional Tips:
+
+You are encouraged to make suggestions for style improvement, but the final decision rests with the human.
+
+With your expertise, transform this piece into a masterpiece for the human reader!
+
+""";
+
+enum ModelName { gpt4, gpt4turbo, gpt35turbo16k }
+
+Map<ModelName, String> modelNameMap = {
   ModelName.gpt4: 'gpt-4',
-  ModelName.gpt35turbo: 'gpt-3.5-turbo',
+  ModelName.gpt4turbo: 'gpt-4-turbo-preview',
   ModelName.gpt35turbo16k: 'gpt-3.5-turbo-16k'
+};
+
+Map<ModelName, int> modelContextWindow = {
+  ModelName.gpt4: (8192 * 0.4).floor(),
+  ModelName.gpt4turbo: (128000 * .4).floor(),
+  ModelName.gpt35turbo16k: (16000 * .4).floor()
 };
 
 class EditorPage extends StatefulWidget {
@@ -71,10 +96,11 @@ class EditorPage extends StatefulWidget {
 class _EditorPageState extends State<EditorPage> {
   bool _firstRun = true;
   String _apiKey = '';
-  int _contextLength = 7000;
   ModelName? _modelName = ModelName.gpt35turbo16k;
+  int _contextLength = (modelContextWindow[ModelName.gpt35turbo16k])!;
   double _temperature = 0.1;
   String _editedText = '';
+  String _systemPrompt = defaultSystemPrompt;
 
   @override
   void initState() {
@@ -87,18 +113,22 @@ class _EditorPageState extends State<EditorPage> {
     setState(() {
       _firstRun = prefs.getBool(PrefKeys.firstRun.name) ?? true;
       _apiKey = prefs.getString(PrefKeys.apiKey.name) ?? '';
-      _contextLength = prefs.getInt(PrefKeys.contextLength.name) ?? 7000;
       _temperature = prefs.getDouble(PrefKeys.temperture.name) ?? 0.1;
+      _systemPrompt =
+          prefs.getString(PrefKeys.systemPrompt.name) ?? defaultSystemPrompt;
 
       String storedModelName = prefs.getString(PrefKeys.modelName.name) ?? '';
       if (ModelName.values.map((e) => e.name).contains(storedModelName)) {
         _modelName =
             ModelName.values.firstWhere((e) => e.name == storedModelName);
+        _contextLength = modelContextWindow[_modelName]!;
       } else {
         _modelName = ModelName.gpt35turbo16k;
+        _contextLength = modelContextWindow[_modelName]!;
       }
 
       apiKeyController.text = _apiKey;
+      promptController.text = _systemPrompt;
     });
   }
 
@@ -139,6 +169,13 @@ class _EditorPageState extends State<EditorPage> {
     }
   }
 
+  void setModel(ModelName? value) {
+    setState(() {
+      _modelName = value;
+      _contextLength = modelContextWindow[value]!;
+    });
+  }
+
   void showSettings(BuildContext context) async {
     showDialog<String>(
         barrierDismissible: false,
@@ -169,11 +206,7 @@ class _EditorPageState extends State<EditorPage> {
                             onChanged: (ModelName? value) {
                               setState(() {
                                 _modelName = value;
-                                if (_modelName == ModelName.gpt35turbo16k) {
-                                  _contextLength = 7000;
-                                } else {
-                                  _contextLength = 3500;
-                                }
+                                _contextLength = modelContextWindow[value]!;
                               });
                             }),
                       ),
@@ -185,14 +218,45 @@ class _EditorPageState extends State<EditorPage> {
                             onChanged: (ModelName? value) {
                               setState(() {
                                 _modelName = value;
-                                if (_modelName == ModelName.gpt35turbo16k) {
-                                  _contextLength = 7000;
-                                } else {
-                                  _contextLength = 3500;
-                                }
+                                _contextLength = modelContextWindow[value]!;
                               });
                             }),
-                      )
+                      ),
+                      ListTile(
+                        title: const Text('GPT-4 Turbo'),
+                        leading: Radio<ModelName>(
+                            value: ModelName.gpt4turbo,
+                            groupValue: _modelName,
+                            onChanged: (ModelName? value) {
+                              setState(() {
+                                _modelName = value;
+                                _contextLength = modelContextWindow[value]!;
+                              });
+                            }),
+                      ),
+                      const SizedBox(height: 20),
+                      const Text("Temperture"),
+                      Slider(
+                          value: _temperature,
+                          max: 1,
+                          min: 0,
+                          label: _temperature.toString(),
+                          divisions: 20,
+                          onChanged: (double value) {
+                            setState(() {
+                              _temperature = value;
+                            });
+                          }),
+                      const SizedBox(height: 20),
+                      const Text("Prompt"),
+                      TextEditor(
+                          text: _systemPrompt,
+                          controller: promptController,
+                          onChange: (String value) {
+                            setState(() {
+                              _systemPrompt = value;
+                            });
+                          })
                     ],
                   ),
                 );
@@ -204,11 +268,11 @@ class _EditorPageState extends State<EditorPage> {
                       setState(() {
                         _apiKey = apiKeyController.text;
                         prefs.setString(PrefKeys.apiKey.name, _apiKey);
-                        prefs.setInt(
-                            PrefKeys.contextLength.name, _contextLength);
                         prefs.setString(
                             PrefKeys.modelName.name, _modelName!.name);
                         prefs.setDouble(PrefKeys.temperture.name, _temperature);
+                        prefs.setString(
+                            PrefKeys.systemPrompt.name, _systemPrompt);
                       });
                       Navigator.pop(context);
                     },
@@ -218,12 +282,6 @@ class _EditorPageState extends State<EditorPage> {
   }
 
   Future<void> callLLM() async {
-    Map<ModelName, String> modelMap = {
-      ModelName.gpt4: 'gpt-4',
-      ModelName.gpt35turbo: 'gpt-3.5-turbo',
-      ModelName.gpt35turbo16k: 'gpt-3.5-turbo-16k'
-    };
-
     ChatOpenAI llm = ChatOpenAI(apiKey: _apiKey);
     ChatPromptTemplate prompt = ChatPromptTemplate.fromPromptMessages([
       SystemChatMessagePromptTemplate.fromTemplate(defaultSystemPrompt),
@@ -236,7 +294,7 @@ class _EditorPageState extends State<EditorPage> {
     int currChunkNumTokens = 0;
 
     final tiktoken.Tiktoken encoding =
-        tiktoken.encodingForModel(modelMap[_modelName!]!);
+        tiktoken.encodingForModel(modelNameMap[_modelName!]!);
 
     Map<int, String> splits = textController.text.split('\n').asMap();
     int totalSplits = splits.length;

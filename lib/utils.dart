@@ -1,1 +1,8 @@
-enum PrefKeys { firstRun, apiKey, temperture, contextLength, modelName }
+enum PrefKeys {
+  firstRun,
+  apiKey,
+  temperture,
+  contextLength,
+  modelName,
+  systemPrompt
+}
