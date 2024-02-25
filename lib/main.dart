@@ -49,6 +49,20 @@ TextEditingController textController = TextEditingController();
 TextEditingController apiKeyController = TextEditingController();
 TextEditingController promptController = TextEditingController();
 
+enum ModelName { gpt4, gpt4turbo, gpt35turbo16k }
+
+Map<ModelName, String> modelNameMap = {
+  ModelName.gpt4: 'gpt-4',
+  ModelName.gpt4turbo: 'gpt-4-turbo-preview',
+  ModelName.gpt35turbo16k: 'gpt-3.5-turbo-16k'
+};
+
+Map<ModelName, int> modelContextWindow = {
+  ModelName.gpt4: (8192 * 0.4).floor(),
+  ModelName.gpt4turbo: (128000 * .4).floor(),
+  ModelName.gpt35turbo16k: (16000 * .4).floor()
+};
+
 const String defaultSystemPrompt = """
 You are a meticulous copy editor with a keen eye for detail and a deep understanding of language. Your mission is to polish a section of an article, ensuring it gleams with clarity, conciseness, and accuracy.
 
@@ -67,22 +81,9 @@ Additional Tips:
 You are encouraged to make suggestions for style improvement, but the final decision rests with the human.
 
 With your expertise, transform this piece into a masterpiece for the human reader!
-
-""";
-
-enum ModelName { gpt4, gpt4turbo, gpt35turbo16k }
-
-Map<ModelName, String> modelNameMap = {
-  ModelName.gpt4: 'gpt-4',
-  ModelName.gpt4turbo: 'gpt-4-turbo-preview',
-  ModelName.gpt35turbo16k: 'gpt-3.5-turbo-16k'
-};
-
-Map<ModelName, int> modelContextWindow = {
-  ModelName.gpt4: (8192 * 0.4).floor(),
-  ModelName.gpt4turbo: (128000 * .4).floor(),
-  ModelName.gpt35turbo16k: (16000 * .4).floor()
-};
+"""; // rewritten by Gemini 1.5
+const double defaultTemperature = 0.1;
+const ModelName defaultModelName = ModelName.gpt35turbo16k;
 
 class EditorPage extends StatefulWidget {
   final String title;
@@ -266,7 +267,26 @@ class _EditorPageState extends State<EditorPage> {
                     onPressed: () async {
                       final prefs = await SharedPreferences.getInstance();
                       setState(() {
+                        _systemPrompt = defaultSystemPrompt;
+                        promptController.text = _systemPrompt;
+                        _temperature = defaultTemperature;
+                        _modelName = defaultModelName;
+                        prefs.setString(PrefKeys.apiKey.name, _apiKey);
+                        prefs.setString(
+                            PrefKeys.modelName.name, _modelName!.name);
+                        prefs.setDouble(PrefKeys.temperture.name, _temperature);
+                        prefs.setString(
+                            PrefKeys.systemPrompt.name, _systemPrompt);
+                      });
+                      Navigator.pop(context);
+                    },
+                    child: const Text("Restore Defaults")),
+                TextButton(
+                    onPressed: () async {
+                      final prefs = await SharedPreferences.getInstance();
+                      setState(() {
                         _apiKey = apiKeyController.text;
+                        _systemPrompt = promptController.text;
                         prefs.setString(PrefKeys.apiKey.name, _apiKey);
                         prefs.setString(
                             PrefKeys.modelName.name, _modelName!.name);
