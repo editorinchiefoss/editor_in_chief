@@ -185,9 +185,7 @@ function App() {
       temperature,
     });
     const promptTemplate = ChatPromptTemplate.fromPromptMessages([
-      SystemMessagePromptTemplate.fromTemplate(
-        'You are an expert copy editor. It is your task to take a piece of an article and proof-read it for grammar and style. Provide a rewritten copy of the article portion back to the human.'
-      ),
+      SystemMessagePromptTemplate.fromTemplate(systemPrompt),
       HumanMessagePromptTemplate.fromTemplate('{input}'),
     ]);
     const chain = new ConversationChain({
